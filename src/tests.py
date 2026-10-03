@@ -14,7 +14,6 @@ class TestMicroservicesIntegration(unittest.TestCase):
         mock_fetch.return_value = {"id": "1", "name": "Alice", "email": "a@t.com"}
         
         order_input = {"user_id": "1", "item": "Laptop"}
-        result = OrderServiceLogic.create_order(order_input)
         
         self.assertEqual(result["user_name"], "Alice")
         self.assertEqual(result["item"], "Laptop")
@@ -25,7 +24,6 @@ class TestMicroservicesIntegration(unittest.TestCase):
         """Негативный сценарий: Пользователь не найден (404)"""
         from requests.exceptions import HTTPError
         
-        mock_fetch.side_effect = LookupError("User 999 not found")
         
         with self.assertRaises(LookupError):
             OrderServiceLogic.create_order({"user_id": "999", "item": "Phone"})
