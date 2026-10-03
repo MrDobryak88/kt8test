@@ -1,7 +1,6 @@
 import requests
 from typing import Optional, Dict, Any
 
-# Имитация базы данных пользователей
 USERS_DB = {
     "1": {"id": "1", "name": "Alice", "email": "alice@test.com"},
     "2": {"id": "2", "name": "Bob", "email": "bob@test.com"}
@@ -15,13 +14,8 @@ class UserServiceLogic:
 class OrderServiceLogic:
     USER_SERVICE_URL = "http://localhost:5001/users/"
     
-    # Для тестов будем мокать этот метод, поэтому логика вызова сети изолирована
     @staticmethod
     def fetch_user_from_external_service(user_id: str) -> Dict[str, Any]:
-        """
-        Реальный вызов к другому микросервису.
-        В тестах мы заменим эту функцию заглушкой.
-        """
         try:
             resp = requests.get(f"{OrderServiceLogic.USER_SERVICE_URL}{user_id}", timeout=2.0)
             if resp.status_code == 404:
@@ -42,11 +36,10 @@ class OrderServiceLogic:
         if not user_id or not item:
             raise ValueError("Missing required fields")
 
-        # Вызов внешнего сервиса
         user_info = OrderServiceLogic.fetch_user_from_external_service(user_id)
         
         new_order = {
-            "id": 1, # Упрощенно
+            "id": 1, 
             "user_id": user_id,
             "user_name": user_info['name'],
             "item": item,
