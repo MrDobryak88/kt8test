@@ -1,39 +1,51 @@
-import unittest
-from unittest.mock import patch, MagicMock
-import sys
-import os
+import pytest
+from unittest.mock import AsyncMock, patch, MagicMock
+from fastapi.testclient import TestClient
+import httpx
+from order_service import app as order_app 
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+client = TestClient(order_app)
 
-from src.services import OrderServiceLogic
+def make_mock_response(status_code, json_data=None):
+    mock_resp = MagicMock(spec=httpx.Response)
+    mock_resp.status_code = status_code
+    if json_data is not None:
+        mock_resp.json.return_value = json_data
+    return mock_resp
 
-class TestMicroservicesIntegration(unittest.TestCase):
+@pytest.fixture
+def mock_http_client():
+    with patch('order_service.httpx.AsyncClient') as MockAsyncClient:
+        instance = MockAsyncClient.return_value.__aenter__.return_value
+        yield instance
 
-    @patch('src.services.OrderServiceLogic.fetch_user_from_external_service')
-    def test_create_order_success(self, mock_fetch):
-        mock_fetch.return_value = {"id": "1", "name": "Alice", "email": "a@t.com"}
-        
-        order_input = {"user_id": "1", "item": "Laptop"}
-        
-        self.assertEqual(result["user_name"], "Alice")
-        self.assertEqual(result["item"], "Laptop")
-        mock_fetch.assert_called_once_with("1")
+def test_create_order_success(mock_http_client):
+    mock_http_client.get.return_value = make_mock_response(200, {"id": "1", "name": "Alice"})
+    response = client.post("/orders", json={"user_id": "1", "item": "Laptop"})
+    
+    assert response.status_code == 200
+    data = response.json()
+    assert data["user_name"] == "Alice"
+    assert data["item"] == "Laptop"
+    mock_http_client.get.assert_called_once_with("http://localhost:8001/users/1", timeout=2.0)
 
-    @patch('src.services.OrderServiceLogic.fetch_user_from_external_service')
-    def test_create_order_user_not_found(self, mock_fetch):
-        """Негативный сценарий: Пользователь не найден (404)"""
-        from requests.exceptions import HTTPError
-        
-        
-        with self.assertRaises(LookupError):
-            OrderServiceLogic.create_order({"user_id": "999", "item": "Phone"})
+def test_create_order_user_not_found(mock_http_client):
+    mock_http_client.get.return_value = make_mock_response(404)
+    response = client.post("/orders", json={"user_id": "999", "item": "Phone"})
+    
+    assert response.status_code == 404
+    assert "does not exist" in response.json()["detail"]
 
-    @patch('src.services.OrderServiceLogic.fetch_user_from_external_service')
-    def test_create_order_connection_error(self, mock_fetch):
-        mock_fetch.side_effect = ConnectionError("Service Unreachable")
-        
-        with self.assertRaises(ConnectionError):
-            OrderServiceLogic.create_order({"user_id": "1", "item": "Book"})
+def test_create_order_connection_error(mock_http_client):
+    mock_http_client.get.side_effect = httpx.ConnectError("Connection refused")
+    response = client.post("/orders", json={"user_id": "1", "item": "Book"})
+    
+    assert response.status_code == 503
+    assert "unreachable" in response.json()["detail"]
 
-if __name__ == '__main__':
-    unittest.main()
+def test_create_order_timeout(mock_http_client):
+    mock_http_client.get.side_effect = httpx.TimeoutException("Read timed out")
+    response = client.post("/orders", json={"user_id": "1", "item": "Pen"})
+    
+    assert response.status_code == 504
+    assert "timed out" in response.json()["detail"]

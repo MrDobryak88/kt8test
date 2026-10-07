@@ -16,14 +16,12 @@ def make_mock_response(status_code, json_data=None):
 
 @pytest.fixture
 def mock_http_client():
-    # Патчим сам класс клиента, чтобы перехватывать все исходящие запросы
     with patch('order_service.httpx.AsyncClient') as MockAsyncClient:
         instance = MockAsyncClient.return_value.__aenter__.return_value
         yield instance
 
 def test_create_order_success(mock_http_client):
     """Позитивный: Сервис заказов успешно получает данные пользователя"""
-    # Имитируем ответ от User Service (порт 8001)
     mock_http_client.get.return_value = make_mock_response(200, {"id": "1", "name": "Alice"})
 
     response = client.post("/orders", json={"user_id": "1", "item": "Laptop"})
@@ -33,7 +31,6 @@ def test_create_order_success(mock_http_client):
     assert data["user_name"] == "Alice"
     assert data["item"] == "Laptop"
     
-    # Проверяем, что был сделан запрос к правильному URL
     mock_http_client.get.assert_called_once_with("http://localhost:8001/users/1", timeout=2.0)
 
 def test_create_order_user_not_found(mock_http_client):
@@ -47,7 +44,6 @@ def test_create_order_user_not_found(mock_http_client):
 
 def test_create_order_connection_error(mock_http_client):
     """Негативный: User Service недоступен (Connection Refused)"""
-    # Выбрасываем исключение на уровне сетевого клиента
     mock_http_client.get.side_effect = httpx.ConnectError("Connection refused")
 
     response = client.post("/orders", json={"user_id": "1", "item": "Book"})
