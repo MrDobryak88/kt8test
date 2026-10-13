@@ -50,7 +50,7 @@ def test_create_order_connection_error(mock_http_client):
     
     assert response.status_code == 503
     assert "unreachable" in response.json()["detail"]
-
+#vvv
 def test_create_order_timeout(mock_http_client):
     """Негативный: Таймаут ответа от User Service"""
     mock_http_client.get.side_effect = httpx.TimeoutException("Read timed out")
